@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bilan Financier</title>
+
+  <!-- Google Fonts: Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap 5.3 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+
+  <!-- jsPDF et AutoTable -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f8fafc;
+      color: #1e293b;
+    }
+    .container {
+      max-width: 1000px;
+      margin-top: 40px;
+      margin-bottom: 80px;
+    }
+    h1, h5 {
+      font-weight: 600;
+      color: #1a305c;
+    }
+    .card {
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    }
+    table {
+      font-size: 0.9rem;
+    }
+    table th {
+      background-color: #f1f5f9;
+      color: #334155;
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    table td {
+      vertical-align: middle;
+    }
+    .badge {
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 0.4em 0.6em;
+      border-radius: 6px;
+    }
+    .badge-paid {
+      background-color: #c6f6d5; color: #2f855a;
+    }
+    .badge-owe {
+      background-color: #fed7d7; color: #c53030;
+    }
+    .badge-partial {
+      background-color: #fef9c3; color: #92400e;
+    }
+    .input-small {
+      width: 100px;
+      padding: 0.25rem;
+    }
+    .pagination-wrapper {
+      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+    }
+    .pagination .page-link {
+      color: #1a305c;
+    }
+    .pagination .page-item.active .page-link {
+      background-color: #1a305c;
+      border-color: #1a305c;
+    }
+    .btn-action {
+      font-size: 0.75rem;
+      padding: 0.2rem 0.4rem;
+    }
+    .last-update {
+      text-align: center;
+      margin-top: 30px;
+      color: #64748b;
+      font-size: 0.8rem;
+    }
+    footer {
+      text-align: center;
+      margin-top: 60px;
+      color: #94a3b8;
+      font-size: 0.8rem;
+    }
+    .text-small {
+      font-size: 0.8rem;
+      color: #64748b;
+    }
+    .summary-box {
+      background: #f1f5f9;
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+
+    <h1><i class="bi bi-wallet2"></i> Bilan Financier</h1>
+    <p class="text-muted text-center">Suivi des paiements • En dinar tunisien (TND)</p>
+
+    <!-- Ajouter facture -->
+    <div class="card p-4 mb-4">
+      <h5>Ajouter une facture commune</h5>
+      <div class="row g-3 mt-2">
+        <div class="col-md-5">
+          <label class="form-label">Description</label>
+          <input type="text" id="desc" class="form-control" placeholder="Électricité, eau, réparation...">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Montant total (TND)</label>
+          <input type="number" id="amount" class="form-control" placeholder="400">
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+          <button class="btn btn-primary" onclick="addInvoice()">
+            <i class="bi bi-plus-circle"></i> Enregistrer
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Liste des factures -->
+    <div class="card p-4 mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5>Liste des factures</h5>
+        <div>
+          <button class="btn btn-sm btn-outline-success me-2" onclick="markAllAsPaid()">
+            <i class="bi bi-check-all"></i> Tout marquer payé
+          </button>
+          <button class="btn btn-sm btn-dark" onclick="generatePDF()">
+            <i class="bi bi-download"></i> PDF
+          </button>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Description</th>
+              <th>Montant (TND)</th>
+              <th>Part (TND)</th>
+              <th>Amal</th>
+              <th>Azer</th>
+              <th>Iheb</th>
+              <th>Abdelkader</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="invoiceList">
+            <!-- Dynamique -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination-wrapper">
+        <nav>
+          <ul class="pagination" id="pagination"></ul>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Résumé par associée -->
+    <div class="summary-box">
+      <h5>Résumé par associée</h5>
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Associée</th>
+              <th>Total dû (TND)</th>
+              <th>Total payé (TND)</th>
+              <th>Reste (TND)</th>
+              <th>Statut</th>
+            </tr>
+          </thead>
+          <tbody id="summaryTable">
+            <!-- Dynamique -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <p class="last-update" id="lastUpdate">Chargement des données...</p>
+
+  </div>
+
+  <footer>
+    ©• Suivi financier collaboratif
+  </footer>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <script>
+    // Configuration Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyAdjb7XIpEky9b_FcgNS0TLgjl7VQEW9qs",
+      authDomain: "gestionprojet-coach.firebaseapp.com",
+      databaseURL: "https://gestionprojet-coach-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "gestionprojet-coach",
+      storageBucket: "gestionprojet-coach.appspot.com",
+      messagingSenderId: "42128207267",
+      appId: "1:42128207267:web:156f6e73222fe8eebb3e16"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const invoicesRef = db.ref("invoices");
+
+    const members = ["Amal", "Azer", "Iheb", "Abdelkader"];
+    let allInvoices = [];
+    let currentPage = 1;
+    const itemsPerPage = 5;
+
+    // Ajouter une facture
+    window.addInvoice = () => {
+      const desc = document.getElementById("desc").value.trim();
+      let amount = parseFloat(document.getElementById("amount").value);
+
+      if (!desc) return alert("Veuillez entrer une description.");
+      if (isNaN(amount) || amount <= 0) return alert("Montant invalide.");
+
+      const share = parseFloat((amount / 4).toFixed(3));
+
+      const invoice = {
+        id: Date.now(),
+        description: desc,
+        amount: amount,
+        share: share,
+        payments: { Amal: 0, Azer: 0, Iheb: 0, Abdelkader: 0 },
+        date: new Date().toISOString()
+      };
+
+      invoicesRef.child(invoice.id).set(invoice)
+        .then(() => {
+          document.getElementById("desc").value = "";
+          document.getElementById("amount").value = "";
+          loadInvoices();
+        })
+        .catch(err => alert("Erreur : " + err.message));
+    };
+
+    // Mettre à jour un paiement
+    window.updatePayment = (invoiceId, member, input) => {
+      const inv = allInvoices.find(i => i.id == invoiceId);
+      if (!inv) return;
+
+      const max = inv.amount;
+      let value = parseFloat(input.value) || 0;
+      value = Math.max(0, Math.min(value, max));
+      input.value = value.toFixed(3);
+
+      invoicesRef.child(invoiceId).child(`payments/${member}`).set(value)
+        .then(loadInvoices)
+        .catch(err => console.error("Erreur update:", err));
+    };
+
+    // Supprimer une facture
+    window.deleteInvoice = (id) => {
+      if (confirm("Supprimer cette facture ?")) {
+        invoicesRef.child(id).remove().then(loadInvoices);
+      }
+    };
+
+    // Marquer tout comme payé
+    window.markAllAsPaid = () => {
+      if (!confirm("Marquer toutes les parts comme payées (1/4 par personne) ?")) return;
+
+      allInvoices.forEach(inv => {
+        const updates = {};
+        members.forEach(m => {
+          updates[`payments/${m}`] = inv.share;
+        });
+        invoicesRef.child(inv.id).update(updates);
+      });
+
+      setTimeout(loadInvoices, 500);
+    };
+
+    // Charger les factures
+    function loadInvoices() {
+      invoicesRef.once('value', snapshot => {
+        allInvoices = [];
+        if (snapshot.exists()) {
+          snapshot.forEach(child => {
+            const data = child.val();
+
+            // 🔴 Sécurité : convertir amount en nombre
+            const amount = typeof data.amount === 'number' ? data.amount : parseFloat(data.amount) || 0;
+            const share = parseFloat((amount / 4).toFixed(3));
+
+            // 🔴 Initialiser payments si absent
+            const payments = data.payments || { Amal: 0, Azer: 0, Iheb: 0, Abdelkader: 0 };
+
+            allInvoices.push({
+              id: data.id || child.key,
+              description: data.description || "Non spécifiée",
+              amount: amount,
+              share: share,
+              payments: payments,
+              date: data.date || ""
+            });
+          });
+        }
+        allInvoices.sort((a, b) => b.id - a.id);
+        renderPagination();
+      }).catch(err => console.error("Erreur load:", err));
+    }
+
+    // Pagination
+    function renderPagination() {
+      const totalPages = Math.ceil(allInvoices.length / itemsPerPage);
+      const pagination = document.getElementById("pagination");
+      pagination.innerHTML = "";
+
+      if (totalPages === 0) {
+        document.getElementById("invoiceList").innerHTML = 
+          `<tr><td colspan="10" class="text-center text-muted">Aucune facture.</td></tr>`;
+        renderSummary();
+        return;
+      }
+
+      for (let i = 1; i <= totalPages; i++) {
+        const li = document.createElement("li");
+        li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+        const a = document.createElement("a");
+        a.href = "#";
+        a.className = "page-link";
+        a.textContent = i;
+        a.onclick = (e) => {
+          e.preventDefault();
+          currentPage = i;
+          renderPagination();
+        };
+        li.appendChild(a);
+        pagination.appendChild(li);
+      }
+
+      renderInvoices();
+    }
+
+    // Afficher les factures
+    function renderInvoices() {
+      const start = (currentPage - 1) * itemsPerPage;
+      const end = start + itemsPerPage;
+      const pageInvoices = allInvoices.slice(start, end);
+      const tbody = document.getElementById("invoiceList");
+      tbody.innerHTML = "";
+
+      pageInvoices.forEach(inv => {
+        const totalPaid = Object.values(inv.payments).reduce((sum, p) => sum + p, 0);
+        const statusClass = totalPaid === 0 ? "badge-owe" :
+                            totalPaid >= inv.amount ? "badge-paid" : "badge-partial";
+        const statusText = totalPaid === 0 ? "Non payé" :
+                           totalPaid >= inv.amount ? "Payé" : "Partiel";
+
+        let paymentsHtml = "";
+        members.forEach(m => {
+          const paid = inv.payments[m] || 0;
+          paymentsHtml += `
+            <td>
+              <input type="number" class="form-control input-small" 
+                     value="${paid.toFixed(3)}" min="0" max="${inv.amount}"
+                     onchange="updatePayment(${inv.id}, '${m}', this)">
+            </td>`;
+        });
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${(inv.id + '').slice(-5)}</td>
+          <td><strong>${inv.description}</strong></td>
+          <td>${inv.amount.toFixed(3)} <span class="text-small">TND</span></td>
+          <td>${inv.share.toFixed(3)} <span class="text-small">TND</span></td>
+          ${paymentsHtml}
+          <td><span class="badge ${statusClass}">${statusText}</span></td>
+          <td>
+            <button class="btn btn-sm btn-outline-danger btn-action" 
+                    onclick="deleteInvoice(${inv.id})">
+              <i class="bi bi-trash"></i>
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      renderSummary();
+    }
+
+    // Bilan par personne
+    function renderSummary() {
+      const dues = { Amal: 0, Azer: 0, Iheb: 0, Abdelkader: 0 };
+      const paid = { Amal: 0, Azer: 0, Iheb: 0, Abdelkader: 0 };
+
+      allInvoices.forEach(inv => {
+        const share = typeof inv.share === 'number' ? inv.share : 0;
+        members.forEach(m => {
+          dues[m] += share;
+          paid[m] += (inv.payments[m] || 0);
+        });
+      });
+
+      const tbody = document.getElementById("summaryTable");
+      tbody.innerHTML = "";
+
+      members.forEach(m => {
+        const dû = parseFloat(dues[m]) || 0;
+        const payé = parseFloat(paid[m]) || 0;
+        const rest = dû - payé;
+
+        const badgeClass = rest > 0 ? "badge-owe" : "badge-paid";
+        const statusText = rest > 0 
+          ? `Doit ${rest.toFixed(3)} TND` 
+          : `À +${Math.abs(rest).toFixed(3)} TND`;
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><strong>${m}</strong></td>
+          <td>${dû.toFixed(3)} TND</td>
+          <td>${payé.toFixed(3)} TND</td>
+          <td>${rest.toFixed(3)} TND</td>
+          <td><span class="badge ${badgeClass}">${statusText}</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById("lastUpdate").textContent = 
+        `Dernière mise à jour : ${new Date().toLocaleString('fr-FR')}`;
+    }
+
+    // Générer PDF
+    window.generatePDF = () => {
+      // 🔴 Recalculer dues et paid ici
+      const dues = { Amal: 0, Azer: 0, Iheb: 0, Abdelkader: 0 };
+      const paid = { Amal: 0, Azer: 0, Iheb: 0, Abdelkader: 0 };
+
+      allInvoices.forEach(inv => {
+        const share = typeof inv.share === 'number' ? inv.share : 0;
+        members.forEach(m => {
+          dues[m] += share;
+          paid[m] += (inv.payments[m] || 0);
+        });
+      });
+      // 🔴 Fin du calcul
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.width;
+      const margin = 15;
+
+      // Titre
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text("Bilan Financier – Projet", margin, 20);
+
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Date d'export : ${new Date().toLocaleDateString('fr-FR')}`, margin, 27);
+      doc.text("Devise : TND (Dinar Tunisien)", margin, 34);
+      doc.setDrawColor(0, 0, 0);
+      doc.line(margin, 40, pageWidth - margin, 40);
+
+      // Tableau factures
+      const invoiceData = allInvoices.map(inv => [
+        inv.id.toString().slice(-5),
+        inv.description,
+        inv.amount.toFixed(3) + " TND",
+        inv.share.toFixed(3) + " TND",
+        (inv.payments.Amal || 0).toFixed(3) + " TND",
+        (inv.payments.Azer || 0).toFixed(3) + " TND",
+        (inv.payments.Iheb || 0).toFixed(3) + " TND",
+        (inv.payments.Abdelkader || 0).toFixed(3) + " TND",
+        Object.values(inv.payments).reduce((a,b) => a+b, 0) >= inv.amount ? "Payé" : "Partiel"
+      ]);
+
+      doc.autoTable({
+        head: [['#', 'Desc.', 'Montant', 'Part', 'Amal', 'Azer', 'Iheb', 'Abdel', 'Statut']],
+        body: invoiceData,
+        startY: 45,
+        theme: 'striped',
+        styles: { fontSize: 9, cellPadding: 2 },
+        headStyles: { fillColor: [26, 48, 92] },
+        margin: { left: margin, right: margin }
+      });
+
+      // Résumé
+      const summaryY = doc.lastAutoTable.finalY + 10;
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Résumé par associée", margin, summaryY);
+
+      const summaryData = members.map(m => {
+        const dû = dues[m].toFixed(3);
+        const payé = paid[m].toFixed(3);
+        const rest = (dues[m] - paid[m]).toFixed(3);
+        const status = rest > 0 ? `Doit ${rest} TND` : `À +${Math.abs(rest)} TND`;
+        return [m, dû + " TND", payé + " TND", rest + " TND", status];
+      });
+
+      doc.autoTable({
+        head: [['Nom', 'Dû', 'Payé', 'Reste', 'Statut']],
+        body: summaryData,
+        startY: summaryY + 5,
+        theme: 'grid',
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [100, 116, 139] },
+        margin: { left: margin, right: margin }
+      });
+
+      // Footer
+      const finalY = doc.lastAutoTable.finalY + 10;
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "italic");
+      doc.text("© • Suivi financier collaboratif", pageWidth / 2, finalY, { align: 'center' });
+
+      doc.save(`Bilan_Financier_${new Date().toISOString().split('T')[0]}.pdf`);
+    };
+
+    // Charger au démarrage
+    loadInvoices();
+
+    // Écouter les changements
+    invoicesRef.on("value", loadInvoices);
+  </script>
+
+</body>
+</html>
