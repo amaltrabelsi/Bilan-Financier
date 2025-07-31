@@ -109,6 +109,11 @@
       padding: 16px;
       margin-top: 20px;
     }
+    .total-row {
+      font-weight: 700;
+      background-color: #f8fafc;
+      border-top: 2px solid #e2e8f0;
+    }
   </style>
 </head>
 <body>
@@ -184,12 +189,12 @@
 
     <!-- Résumé par associée -->
     <div class="summary-box">
-      <h5>Résumé par associée</h5>
+      <h5>Résumé par personne</h5>
       <div class="table-responsive">
         <table class="table table-sm">
           <thead>
             <tr>
-              <th>Associée</th>
+              <th>Personne</th>
               <th>Total dû (TND)</th>
               <th>Total payé (TND)</th>
               <th>Reste (TND)</th>
@@ -203,12 +208,33 @@
       </div>
     </div>
 
+    <!-- Bilan global -->
+    <div class="card p-4">
+      <h5>Bilan global du projet</h5>
+      <table class="table mt-3">
+        <tbody>
+          <tr>
+            <td><strong>Total des factures</strong></td>
+            <td id="totalInvoices">0.000 TND</td>
+          </tr>
+          <tr>
+            <td><strong>Total payé par tous</strong></td>
+            <td id="totalPaidGlobal">0.000 TND</td>
+          </tr>
+          <tr>
+            <td><strong>Reste à payer</strong></td>
+            <td id="totalReste">0.000 TND</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
     <p class="last-update" id="lastUpdate">Chargement des données...</p>
 
   </div>
 
   <footer>
-    ©• Suivi financier collaboratif
+    © Suivi financier collaboratif
   </footer>
 
   <!-- Firebase SDK -->
@@ -309,11 +335,11 @@
           snapshot.forEach(child => {
             const data = child.val();
 
-            // 🔴 Sécurité : convertir amount en nombre
+            // Sécurité : convertir amount en nombre
             const amount = typeof data.amount === 'number' ? data.amount : parseFloat(data.amount) || 0;
             const share = parseFloat((amount / 4).toFixed(3));
 
-            // 🔴 Initialiser payments si absent
+            // Initialiser payments si absent
             const payments = data.payments || { Amal: 0, Azer: 0, Iheb: 0, Abdelkader: 0 };
 
             allInvoices.push({
@@ -410,13 +436,16 @@
       renderSummary();
     }
 
-    // Bilan par personne
+    // Bilan par personne + Total global
     function renderSummary() {
       const dues = { Amal: 0, Azer: 0, Iheb: 0, Abdelkader: 0 };
       const paid = { Amal: 0, Azer: 0, Iheb: 0, Abdelkader: 0 };
 
+      let totalFactures = 0;
+
       allInvoices.forEach(inv => {
         const share = typeof inv.share === 'number' ? inv.share : 0;
+        totalFactures += inv.amount || 0;
         members.forEach(m => {
           dues[m] += share;
           paid[m] += (inv.payments[m] || 0);
@@ -447,24 +476,36 @@
         tbody.appendChild(tr);
       });
 
+      // Mise à jour du bilan global
+      const totalPayeGlobal = Object.values(paid).reduce((sum, p) => sum + p, 0);
+      const resteGlobal = totalFactures - totalPayeGlobal;
+
+      document.getElementById("totalInvoices").textContent = totalFactures.toFixed(3) + " TND";
+      document.getElementById("totalPaidGlobal").textContent = totalPayeGlobal.toFixed(3) + " TND";
+      document.getElementById("totalReste").textContent = resteGlobal.toFixed(3) + " TND";
+
       document.getElementById("lastUpdate").textContent = 
         `Dernière mise à jour : ${new Date().toLocaleString('fr-FR')}`;
     }
 
     // Générer PDF
     window.generatePDF = () => {
-      // 🔴 Recalculer dues et paid ici
+      // Recalculer les totaux
       const dues = { Amal: 0, Azer: 0, Iheb: 0, Abdelkader: 0 };
       const paid = { Amal: 0, Azer: 0, Iheb: 0, Abdelkader: 0 };
+      let totalFactures = 0;
 
       allInvoices.forEach(inv => {
         const share = typeof inv.share === 'number' ? inv.share : 0;
+        totalFactures += inv.amount || 0;
         members.forEach(m => {
           dues[m] += share;
           paid[m] += (inv.payments[m] || 0);
         });
       });
-      // 🔴 Fin du calcul
+
+      const totalPayeGlobal = Object.values(paid).reduce((sum, p) => sum + p, 0);
+      const resteGlobal = totalFactures - totalPayeGlobal;
 
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF('p', 'mm', 'a4');
@@ -474,7 +515,7 @@
       // Titre
       doc.setFontSize(18);
       doc.setFont("helvetica", "bold");
-      doc.text("Bilan Financier – Projet", margin, 20);
+      doc.text("Bilan Financier", margin, 20);
 
       doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
@@ -506,11 +547,11 @@
         margin: { left: margin, right: margin }
       });
 
-      // Résumé
+      // Résumé par personne
       const summaryY = doc.lastAutoTable.finalY + 10;
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
-      doc.text("Résumé par associée", margin, summaryY);
+      doc.text("Résumé par personne", margin, summaryY);
 
       const summaryData = members.map(m => {
         const dû = dues[m].toFixed(3);
@@ -530,11 +571,32 @@
         margin: { left: margin, right: margin }
       });
 
+      // Bilan global
+      const globalY = doc.lastAutoTable.finalY + 10;
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Bilan global du projet", margin, globalY);
+
+      const globalData = [
+        ['Total des factures', totalFactures.toFixed(3) + " TND"],
+        ['Total payé par tous', totalPayeGlobal.toFixed(3) + " TND"],
+        ['Reste à payer', resteGlobal.toFixed(3) + " TND"]
+      ];
+
+      doc.autoTable({
+        body: globalData,
+        startY: globalY + 5,
+        theme: 'grid',
+        styles: { fontSize: 10 },
+        headStyles: { fillColor: [200, 200, 200], textColor: 0 },
+        margin: { left: margin, right: margin }
+      });
+
       // Footer
       const finalY = doc.lastAutoTable.finalY + 10;
       doc.setFontSize(9);
       doc.setFont("helvetica", "italic");
-      doc.text("© • Suivi financier collaboratif", pageWidth / 2, finalY, { align: 'center' });
+      doc.text("© Suivi financier collaboratif", pageWidth / 2, finalY, { align: 'center' });
 
       doc.save(`Bilan_Financier_${new Date().toISOString().split('T')[0]}.pdf`);
     };
